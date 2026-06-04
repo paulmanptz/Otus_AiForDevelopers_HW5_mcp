@@ -1,27 +1,27 @@
-# Local MCP Knowledge Base
+# Локальная база знаний MCP
 
-## MCP Server
+## MCP-сервер
 
-This project contains a local Model Context Protocol server for a VS Code agent.
-The server uses stdio transport, registers custom tools, and returns structured
-JSON results.
+Этот проект содержит локальный сервер Model Context Protocol для агента в VS Code.
+Сервер использует транспорт `stdio`, регистрирует кастомные инструменты и
+возвращает структурированные JSON-результаты.
 
-## Tools
+## Инструменты
 
-The server exposes three demonstration tools:
+Сервер предоставляет три демонстрационных инструмента:
 
-- `doc_lookup`: searches this local documentation file.
-- `project_search`: searches files inside the project directory only.
-- `safe_command`: runs a small whitelist of safe project commands.
+- `doc_lookup`: ищет информацию в этом локальном файле документации.
+- `project_search`: ищет совпадения только внутри директории проекта.
+- `safe_command`: запускает небольшой whitelist безопасных команд проекта.
 
-## VS Code Integration
+## Интеграция с VS Code
 
-The `.vscode/mcp.json` file registers the server as `hw5-local-mcp`.
-After installing dependencies and building the project, VS Code can start the
-server with `node dist/index.js` and call its tools from agent chat.
+Файл `.vscode/mcp.json` регистрирует сервер под именем `hw5-local-mcp`.
+После установки зависимостей и сборки проекта VS Code может запустить сервер
+командой `node dist/index.js` и вызывать его инструменты из чата агента.
 
-## Security Notes
+## Заметки по безопасности
 
-The project search tool keeps file access inside the workspace root. The command
-tool does not execute arbitrary shell input and only runs commands defined in an
-internal allowlist.
+Инструмент поиска по проекту ограничивает доступ к файлам корнем рабочей папки.
+Инструмент запуска команд не выполняет произвольный shell-ввод и запускает только
+команды, заданные во внутреннем списке разрешенных команд.

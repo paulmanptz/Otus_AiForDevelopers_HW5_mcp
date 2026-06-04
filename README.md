@@ -1,17 +1,17 @@
 # HW5 MCP Server
 
 Учебный MCP-сервер на Node.js/TypeScript для подключения к агенту в VS Code.
-Сервер работает через стандартный `stdio` transport и объявляет кастомные tools,
+Сервер работает через стандартный транспорт `stdio` и объявляет кастомные инструменты,
 которые возвращают структурированные JSON-результаты.
 
 ## Что реализовано
 
-- MCP endpoint через `StdioServerTransport`.
+- MCP-эндпоинт через `StdioServerTransport`.
 - Конфиг интеграции с VS Code: `.vscode/mcp.json`.
-- 3 custom tools:
+- 3 кастомных инструмента:
   - `doc_lookup` - поиск по локальной markdown-документации.
-  - `project_search` - поиск по файлам проекта в пределах workspace.
-  - `safe_command` - запуск только whitelisted dev-команд.
+  - `project_search` - поиск по файлам проекта в пределах рабочей папки.
+  - `safe_command` - запуск только разрешенных dev-команд из whitelist.
 
 ## Установка и сборка
 
@@ -29,7 +29,7 @@ npm start
 Обычно вручную запускать сервер не нужно: VS Code стартует его сам по конфигу
 `.vscode/mcp.json`.
 
-## VS Code MCP config
+## Конфиг MCP для VS Code
 
 Файл `.vscode/mcp.json` регистрирует сервер `hw5-local-mcp`:
 
@@ -48,30 +48,32 @@ npm start
 }
 ```
 
-Если агент не видит tools сразу, перезапусти VS Code или выполни команду
+Если агент не видит инструменты сразу, перезапусти VS Code или выполни команду
 обновления MCP-серверов в своем MCP-клиенте/расширении.
 
 ## Примеры запросов в IDE chat
 
-Попроси агента явно использовать tools:
+Попроси агента явно использовать инструменты:
 
 ```text
-Use the hw5-local-mcp doc_lookup tool to find information about VS Code integration.
+Используй инструмент hw5-local-mcp doc_lookup, чтобы найти информацию об интеграции с VS Code.
 ```
 
 ```text
-Use the hw5-local-mcp project_search tool to find where safe_command is implemented.
+Используй инструмент hw5-local-mcp project_search, чтобы найти, где реализован safe_command.
 ```
 
 ```text
-Use the hw5-local-mcp safe_command tool to run npm run build.
+Используй инструмент hw5-local-mcp safe_command, чтобы выполнить npm run build.
 ```
 
-## Tool schemas
+## Схемы инструментов
 
 ### doc_lookup
 
-Input:
+Назначение: ищет по локальному markdown-файлу `docs/local-docs.md` и возвращает найденные разделы, краткую выжимку и путь к источнику.
+
+Входные параметры:
 
 ```json
 {
@@ -80,7 +82,7 @@ Input:
 }
 ```
 
-Output:
+Результат:
 
 ```json
 {
@@ -101,7 +103,9 @@ Output:
 
 ### project_search
 
-Input:
+Назначение: ищет текстовые совпадения внутри файлов проекта, не выходя за пределы рабочей папки.
+
+Входные параметры:
 
 ```json
 {
@@ -111,7 +115,7 @@ Input:
 }
 ```
 
-Output:
+Результат:
 
 ```json
 {
@@ -133,7 +137,9 @@ Output:
 
 ### safe_command
 
-Input:
+Назначение: запускает только заранее разрешенные команды разработки и возвращает код завершения, stdout, stderr и время выполнения.
+
+Входные параметры:
 
 ```json
 {
@@ -141,13 +147,13 @@ Input:
 }
 ```
 
-Allowed commands:
+Разрешенные команды:
 
 - `npm run build`
 - `npm run lint`
 - `npm test`
 
-Output:
+Результат:
 
 ```json
 {
@@ -161,20 +167,20 @@ Output:
 }
 ```
 
-## Security limits
+## Ограничения безопасности
 
-- File search ignores `.git`, `.cursor`, `node_modules` and `dist`.
-- File access is checked against `MCP_PROJECT_ROOT`.
-- `safe_command` does not execute arbitrary user-provided shell strings.
-- Command output is truncated to avoid returning overly large responses.
+- Поиск по файлам игнорирует `.git`, `.cursor`, `node_modules` и `dist`.
+- Доступ к файлам проверяется относительно `MCP_PROJECT_ROOT`.
+- `safe_command` не выполняет произвольные shell-строки от пользователя.
+- Вывод команды обрезается, чтобы не возвращать слишком большие ответы.
 
-## Verification
+## Проверка
 
 ```powershell
 npm run build
 npm run lint
 ```
 
-For IDE verification, open the agent chat and ask it to call one of the
-`hw5-local-mcp` tools. A successful call should return JSON-like structured
-data from the MCP server.
+Для проверки в IDE открой чат агента и попроси его вызвать один из инструментов
+`hw5-local-mcp`. Успешный вызов должен вернуть структурированные JSON-данные от
+MCP-сервера.

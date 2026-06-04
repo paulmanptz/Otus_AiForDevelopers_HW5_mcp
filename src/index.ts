@@ -33,12 +33,12 @@ const server = new McpServer({
 server.registerTool(
   "doc_lookup",
   {
-    title: "Lookup Local Documentation",
+    title: "Поиск по локальной документации",
     description:
-      "Searches the prepared local markdown documentation and returns matching sections with summaries.",
+      "Ищет по подготовленной локальной markdown-документации и возвращает найденные разделы с краткими выжимками.",
     inputSchema: {
-      query: z.string().min(1).describe("Search query, for example: MCP server, tools, VS Code."),
-      section: z.string().optional().describe("Optional heading filter, for example: Tools.")
+      query: z.string().min(1).describe("Поисковый запрос, например: MCP server, tools, VS Code."),
+      section: z.string().optional().describe("Необязательный фильтр по заголовку, например: Tools.")
     }
   },
   async ({ query, section }) => {
@@ -83,16 +83,16 @@ server.registerTool(
 server.registerTool(
   "project_search",
   {
-    title: "Search Project Files",
+    title: "Поиск по файлам проекта",
     description:
-      "Searches text files inside the project directory only and returns file, line and preview data.",
+      "Ищет по текстовым файлам только внутри директории проекта и возвращает файл, строку и фрагмент найденного текста.",
     inputSchema: {
-      query: z.string().min(1).describe("Text to search for inside project files."),
+      query: z.string().min(1).describe("Текст для поиска внутри файлов проекта."),
       fileGlob: z
         .string()
         .default("**/*")
-        .describe("Simple glob filter, for example: **/*.ts, **/*.md, package.json."),
-      maxResults: z.number().int().min(1).max(50).default(20).describe("Maximum number of matches.")
+        .describe("Простой glob-фильтр, например: **/*.ts, **/*.md, package.json."),
+      maxResults: z.number().int().min(1).max(50).default(20).describe("Максимальное количество совпадений.")
     }
   },
   async ({ query, fileGlob, maxResults }) => {
@@ -147,13 +147,13 @@ server.registerTool(
 server.registerTool(
   "safe_command",
   {
-    title: "Run Safe Project Command",
+    title: "Запуск безопасной команды проекта",
     description:
-      "Runs a whitelisted development command and returns exit code, stdout, stderr and duration.",
+      "Запускает разрешенную команду разработки из whitelist и возвращает код завершения, stdout, stderr и длительность выполнения.",
     inputSchema: {
       command: z
         .enum(["npm run build", "npm run lint", "npm test"])
-        .describe("Whitelisted command to execute.")
+        .describe("Разрешенная команда для выполнения.")
     }
   },
   async ({ command }) => {
