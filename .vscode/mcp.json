@@ -1,0 +1,12 @@
+{
+  "servers": {
+    "hw5-local-mcp": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["${workspaceFolder}/dist/index.js"],
+      "env": {
+        "MCP_PROJECT_ROOT": "${workspaceFolder}"
+      }
+    }
+  }
+}
