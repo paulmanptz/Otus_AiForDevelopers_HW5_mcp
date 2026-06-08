@@ -10,6 +10,7 @@ const PROJECT_ROOT = path.resolve(process.env.MCP_PROJECT_ROOT ?? process.cwd())
 const DOCS_FILE = path.join(PROJECT_ROOT, "docs", "local-docs.md");
 const MAX_OUTPUT_CHARS = 12_000;
 const IGNORED_DIRS = new Set([".git", ".cursor", "node_modules", "dist"]);
+const SENSITIVE_KEY_PATTERN = /(api[_-]?key|auth|credential|password|secret|token)/i;
 
 type JsonObject = Record<string, unknown>;
 
@@ -42,40 +43,42 @@ server.registerTool(
     }
   },
   async ({ query, section }) => {
-    const sections = parseMarkdownSections(await fs.readFile(DOCS_FILE, "utf8"));
-    const normalizedQuery = query.toLowerCase();
-    const normalizedSection = section?.toLowerCase();
+    return withToolLogging("doc_lookup", { query, section: section ?? null }, async () => {
+      const sections = parseMarkdownSections(await fs.readFile(DOCS_FILE, "utf8"));
+      const normalizedQuery = query.toLowerCase();
+      const normalizedSection = section?.toLowerCase();
 
-    const matches = sections
-      .map((item) => {
-        const searchableText = `${item.heading}\n${item.content}`.toLowerCase();
-        const sectionMatches = normalizedSection
-          ? item.heading.toLowerCase().includes(normalizedSection)
-          : true;
-        const queryMatches = searchableText.includes(normalizedQuery);
+      const matches = sections
+        .map((item) => {
+          const searchableText = `${item.heading}\n${item.content}`.toLowerCase();
+          const sectionMatches = normalizedSection
+            ? item.heading.toLowerCase().includes(normalizedSection)
+            : true;
+          const queryMatches = searchableText.includes(normalizedQuery);
 
-        return {
-          item,
-          score: Number(queryMatches) + Number(item.heading.toLowerCase().includes(normalizedQuery)),
-          sectionMatches
-        };
-      })
-      .filter((result) => result.sectionMatches && result.score > 0)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 5)
-      .map(({ item, score }) => ({
-        heading: item.heading,
-        score,
-        summary: summarize(item.content),
-        source: relativeToRoot(DOCS_FILE)
-      }));
+          return {
+            item,
+            score: Number(queryMatches) + Number(item.heading.toLowerCase().includes(normalizedQuery)),
+            sectionMatches
+          };
+        })
+        .filter((result) => result.sectionMatches && result.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 5)
+        .map(({ item, score }) => ({
+          heading: item.heading,
+          score,
+          summary: summarize(item.content),
+          source: relativeToRoot(DOCS_FILE)
+        }));
 
-    return jsonResult({
-      tool: "doc_lookup",
-      query,
-      section: section ?? null,
-      count: matches.length,
-      matches
+      return jsonResult({
+        tool: "doc_lookup",
+        query,
+        section: section ?? null,
+        count: matches.length,
+        matches
+      });
     });
   }
 );
@@ -96,30 +99,36 @@ server.registerTool(
     }
   },
   async ({ query, fileGlob, maxResults }) => {
-    const files = await collectProjectFiles(PROJECT_ROOT);
-    const matcher = globToRegExp(fileGlob);
-    const hits: SearchHit[] = [];
-    const normalizedQuery = query.toLowerCase();
+    return withToolLogging("project_search", { query, fileGlob, maxResults }, async () => {
+      const files = await collectProjectFiles(PROJECT_ROOT);
+      const matcher = globToRegExp(fileGlob);
+      const hits: SearchHit[] = [];
+      const normalizedQuery = query.toLowerCase();
 
-    for (const file of files) {
-      const relativeFile = relativeToRoot(file);
-      if (!matcher.test(toPosixPath(relativeFile))) {
-        continue;
-      }
+      for (const file of files) {
+        const relativeFile = relativeToRoot(file);
+        if (!matcher.test(toPosixPath(relativeFile))) {
+          continue;
+        }
 
-      const content = await safeReadTextFile(file);
-      if (content === null) {
-        continue;
-      }
+        const content = await safeReadTextFile(file);
+        if (content === null) {
+          continue;
+        }
 
-      const lines = content.split(/\r?\n/);
-      for (const [index, line] of lines.entries()) {
-        if (line.toLowerCase().includes(normalizedQuery)) {
-          hits.push({
-            file: relativeFile,
-            line: index + 1,
-            preview: line.trim().slice(0, 300)
-          });
+        const lines = content.split(/\r?\n/);
+        for (const [index, line] of lines.entries()) {
+          if (line.toLowerCase().includes(normalizedQuery)) {
+            hits.push({
+              file: relativeFile,
+              line: index + 1,
+              preview: line.trim().slice(0, 300)
+            });
+          }
+
+          if (hits.length >= maxResults) {
+            break;
+          }
         }
 
         if (hits.length >= maxResults) {
@@ -127,19 +136,15 @@ server.registerTool(
         }
       }
 
-      if (hits.length >= maxResults) {
-        break;
-      }
-    }
-
-    return jsonResult({
-      tool: "project_search",
-      query,
-      fileGlob,
-      maxResults,
-      count: hits.length,
-      root: PROJECT_ROOT,
-      hits
+      return jsonResult({
+        tool: "project_search",
+        query,
+        fileGlob,
+        maxResults,
+        count: hits.length,
+        root: PROJECT_ROOT,
+        hits
+      });
     });
   }
 );
@@ -157,23 +162,25 @@ server.registerTool(
     }
   },
   async ({ command }) => {
-    const commandMap: Record<string, { executable: string; args: string[] }> = {
-      "npm run build": { executable: npmExecutable(), args: ["run", "build"] },
-      "npm run lint": { executable: npmExecutable(), args: ["run", "lint"] },
-      "npm test": { executable: npmExecutable(), args: ["test"] }
-    };
+    return withToolLogging("safe_command", { command }, async () => {
+      const commandMap: Record<string, { executable: string; args: string[] }> = {
+        "npm run build": { executable: npmExecutable(), args: ["run", "build"] },
+        "npm run lint": { executable: npmExecutable(), args: ["run", "lint"] },
+        "npm test": { executable: npmExecutable(), args: ["test"] }
+      };
 
-    const startTime = performance.now();
-    const result = await runAllowedCommand(commandMap[command]);
+      const startTime = performance.now();
+      const result = await runAllowedCommand(commandMap[command]);
 
-    return jsonResult({
-      tool: "safe_command",
-      command,
-      exitCode: result.exitCode,
-      stdout: truncate(result.stdout),
-      stderr: truncate(result.stderr),
-      durationMs: Math.round(performance.now() - startTime),
-      allowedCommands: Object.keys(commandMap)
+      return jsonResult({
+        tool: "safe_command",
+        command,
+        exitCode: result.exitCode,
+        stdout: truncate(result.stdout),
+        stderr: truncate(result.stderr),
+        durationMs: Math.round(performance.now() - startTime),
+        allowedCommands: Object.keys(commandMap)
+      });
     });
   }
 );
@@ -193,6 +200,70 @@ function jsonResult(payload: JsonObject) {
     ],
     structuredContent: payload
   };
+}
+
+async function withToolLogging<T>(
+  toolName: string,
+  input: JsonObject,
+  handler: () => Promise<T>
+): Promise<T> {
+  const startTime = performance.now();
+
+  try {
+    const result = await handler();
+    logToolCall({
+      toolName,
+      input,
+      status: "success",
+      durationMs: Math.round(performance.now() - startTime)
+    });
+    return result;
+  } catch (error) {
+    logToolCall({
+      toolName,
+      input,
+      status: "error",
+      durationMs: Math.round(performance.now() - startTime),
+      error: error instanceof Error ? error.message : String(error)
+    });
+    throw error;
+  }
+}
+
+function logToolCall(event: {
+  toolName: string;
+  input: JsonObject;
+  status: "success" | "error";
+  durationMs: number;
+  error?: string;
+}): void {
+  console.error(
+    JSON.stringify({
+      event: "mcp_tool_call",
+      toolName: event.toolName,
+      input: redactSecrets(event.input),
+      status: event.status,
+      durationMs: event.durationMs,
+      ...(event.error ? { error: event.error } : {})
+    })
+  );
+}
+
+function redactSecrets(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => redactSecrets(item));
+  }
+
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nestedValue]) => [
+        key,
+        SENSITIVE_KEY_PATTERN.test(key) ? "[REDACTED]" : redactSecrets(nestedValue)
+      ])
+    );
+  }
+
+  return value;
 }
 
 function parseMarkdownSections(markdown: string): DocSection[] {
